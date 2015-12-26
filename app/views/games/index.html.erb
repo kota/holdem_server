@@ -1,0 +1,15 @@
+<table>
+<% @games.each do |game| %>
+  <tr>
+    <td><%= "Game#{game.id}" %></td>
+    <td>
+      <%= form_for [game, Player.new] do |form| %>
+        <%= form.submit 'join' %>
+      <% end %>
+    </td>
+  </tr>
+<% end %>
+</table>
+<%= form_for Game.new do |form| %>
+  <%= form.submit 'Create new game' %>
+<% end %>

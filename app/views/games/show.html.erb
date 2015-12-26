@@ -1,0 +1,19 @@
+<section id="game" data-channel="game" data-game-id="<%= @game.id %>">
+
+Players
+<ul>
+  <% @game.players.each do |player| %>
+    <li><%= player.user.name %></li>
+  <% end %>
+</ul>
+
+<%= form_for [ @game, Hand.new ], remote: true do |form| %>
+  <%= form.submit 'Start new hand' %>
+<% end %>
+
+<hr>
+
+<div id="hand">
+  <%= render(partial: 'games/hands/show', locals: { hand: @hand }) if @hand %>
+</div>
+</section>

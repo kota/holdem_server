@@ -1,0 +1,23 @@
+<%= "Hand##{hand.id}" %>
+<% current_user ||= @current_user %>
+<% game ||= @game %>
+
+<p>
+  Pot: <%= hand.pot %><br>
+  Round: <%= hand.round %>
+</p>
+<p>
+  Community cards: <br>
+  <%= hand.community_cards %>
+</p>
+<ul>
+  <% hand.players.each do |player| %>
+    <li>
+      <%= player.user.id == current_user.id ? player.to_s_for_owner_user : player.to_s %>
+    </li>
+  <% end %>
+</ul>
+
+<div id="hand_control" style="display:<%= !hand || hand.action_player.user.id != current_user.id || hand.finished? ? 'none' : 'block' %> ">
+  <%= render(partial: 'games/hands/controls', locals: { game: game, hand: hand }) if hand %>
+</div>

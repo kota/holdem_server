@@ -1,0 +1,8 @@
+<% game ||= @game %>
+<% hand ||= @hand %>
+<%= form_for [ game, hand, HandAction.new ], remote: true do |form| %>
+  <%= form.submit 'check/call' %>
+  <%= form.text_field :bet_amount %>
+  <%= form.submit 'bet/raise' %>
+  <%= form.submit 'fold' %>
+<% end %>

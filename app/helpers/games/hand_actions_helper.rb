@@ -1,0 +1,2 @@
+module Games::HandActionsHelper
+end

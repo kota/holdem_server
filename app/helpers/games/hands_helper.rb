@@ -1,0 +1,2 @@
+module Games::HandsHelper
+end
