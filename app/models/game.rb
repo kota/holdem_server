@@ -18,7 +18,7 @@ class Game < ActiveRecord::Base
 
   #TODO handと重複している
   def player_next_to(origin_player)
-    players = self.players.active.to_a
+    players = self.players.not_busted.to_a
     index = players.index { |player| player.id == origin_player.id }
     next_index = index + 1
     next_index %= players.count

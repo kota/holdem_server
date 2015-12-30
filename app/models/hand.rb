@@ -4,6 +4,20 @@ class Card
   def to_db
     "#{rank}#{suit}"
   end
+
+  def rank_str_for_image
+    return rank if rank.to_i > 0
+    return {T: '10', J: 'jack', Q: 'queen', K: 'king', A: 'ace'}[rank.to_sym]
+  end
+
+  def suit_str_for_image
+    {s: 'spades', d: 'diamonds', h: 'hearts', c: 'clubs'}[suit.to_sym]
+  end
+
+  def self.to_image_html(card_str)
+    card = Card.new(card_str)
+    "<img style='width:5%' src='/images/cards/#{card.rank_str_for_image}_of_#{card.suit_str_for_image}.png' />"
+  end
 end
 
 class Hand < ActiveRecord::Base
@@ -42,12 +56,18 @@ class Hand < ActiveRecord::Base
     deck = Deck.new
     deck.shuffle!
 
-    self.players.each do |player|
-      player.prepare_for_new_hand
+    self.players.each(&:prepare_for_new_hand!)
+
+    self.players.reload.each do |player|
       player.hole_cards = deck.deal(2).map(&:to_db).join(' ')
       player.position = self.position_for(player)
       player.save!
     end
+
+    puts "bu=#{self.game.current_button_player.id}"
+    puts "sb=#{sb_player.id}"
+    puts "bb=#{bb_player.id}"
+    puts "sb=#{utg_player.id}"
 
     self.pot ||= 0
     self.hand_actions.build(player: sb_player).sb!
@@ -93,7 +113,7 @@ class Hand < ActiveRecord::Base
       end
       raise "You don't have enough chip" if action.player.chip < to_pot
     when 'fold'
-      action.player.folded = true
+      action.player.state = 'folded'
     end
 
     if to_pot > 0
@@ -155,7 +175,8 @@ class Hand < ActiveRecord::Base
   end
 
   def round_finished?
-    all_players_done = round_actions.map { |action| action.player.id }.uniq.size == self.players.active.reload.size
+    # drop(2) to remove sb,bb actions
+    all_players_done = round_actions.drop(2).map { |action| action.player.id }.uniq.size == self.players.active.reload.size
     all_betting_same_amount = self.players.active.map do |player|
       round_actions.where(player_id: player.id).maximum(:bet_amount)
     end.uniq.size == 1

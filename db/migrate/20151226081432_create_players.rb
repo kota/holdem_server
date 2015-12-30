@@ -6,7 +6,7 @@ class CreatePlayers < ActiveRecord::Migration
       t.references :hand
       t.float :chip, default: 0
       t.string :hole_cards
-      t.boolean :folded, default: false
+      t.string :state, default: 'ingame'
       t.integer :position
       t.timestamps
     end
