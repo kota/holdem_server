@@ -5,7 +5,7 @@ class Games::HandActionsController < ApplicationController
     @player = @hand.players.where(user_id: @current_user.id).first
     @action = @hand.add_action(HandAction.new(action_type: params[:commit], player: @player, bet_amount: action_params[:bet_amount]))
 
-    @hand.players.each do |player| 
+    @hand.players.reload.each do |player| 
       ActionCable.server.broadcast "games:#{@hand.game.id}:#{player.user.id}",
         hand: Games::HandsController.render(partial: 'games/hands/show', locals: { hand: @hand, game: @game, current_user: player.user }), my_action: @hand.action_player.id == player.id
     end

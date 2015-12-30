@@ -12,6 +12,13 @@ class Player < ActiveRecord::Base
     self.folded = false
   end
 
+  def bet!(amount)
+    #TODO all-in
+    self.chip -= amount
+    save!
+    amount
+  end
+
   def turn?
     self.hand.action_player.id == self.id
   end
@@ -24,7 +31,8 @@ class Player < ActiveRecord::Base
   end
 
   def to_s(show_hole_cards=false)
-    str = "#{self.user.name} (#{self.chip})"
+    button_notation = self.hand.game.current_button_player.id == self.id ? " (D) " : ""
+    str = "#{self.user.name}#{button_notation}(#{self.chip})"
     str += " #{self.hole_cards}" if show_hole_cards || self.hand.finished?
     str += " Win #{self.hand.pot}" if self.hand.winner != nil && self.hand.winner.id == self.id
     str += " #{current_bet}" unless self.hand.finished?

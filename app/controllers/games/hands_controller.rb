@@ -1,7 +1,7 @@
 class Games::HandsController < ApplicationController
   def create
     @game = Game.find(params[:game_id])
-    @hand = @game.hands.create(players: @game.players)
+    @hand = @game.start_hand!
 
     @hand.players.each do |player| 
       ActionCable.server.broadcast "games:#{@hand.game.id}:#{player.user.id}",

@@ -10,27 +10,53 @@ class Hand < ActiveRecord::Base
   belongs_to :game
   has_many :players
   belongs_to :action_player, class_name: "Player"
-  belongs_to :button_player, class_name: "Player"
   has_many :hand_actions
 
   after_create :start
+
+  def position_for(player)
+    utg_index = self.players.index(utg_player)
+    player_index = self.players.index(player)
+    player_index += self.players.count - 1 if player_index < utg_index
+    player_index - utg_index
+  end
+
+  def sb_player
+    return @sb_player if @sb_player
+
+    button_player = self.game.current_button_player
+    @sb_player = self.players.size == 2 ? button_player : player_physically_next_to(button_player) 
+  end
+
+  def bb_player
+    return @bb_player if @bb_player
+    @bb_player = self.player_physically_next_to(sb_player)
+  end
+
+  def utg_player
+    return @utg_player if @utg_player
+    @utg_player = self.player_physically_next_to(bb_player)
+  end
 
   def start
     deck = Deck.new
     deck.shuffle!
 
-    #TODO seat position
-    #TODO charge sb,bb
     self.players.each do |player|
       player.prepare_for_new_hand
       player.hole_cards = deck.deal(2).map(&:to_db).join(' ')
+      player.position = self.position_for(player)
       player.save!
     end
+
+    self.pot ||= 0
+    self.hand_actions.build(player: sb_player).sb!
+    self.hand_actions.build(player: bb_player).bb!
 
     self.flop = deck.deal(3).map(&:to_db).join(' ')
     self.turn = deck.deal(1).map(&:to_db).join(' ')
     self.river = deck.deal(1).map(&:to_db).join(' ')
-    self.action_player = self.players.first
+    self.action_player = utg_player
     self.round = 'preflop'
     save!
   end
@@ -85,7 +111,7 @@ class Hand < ActiveRecord::Base
     end
 
     if round_finished?
-      self.action_player = self.players.active.reload.first
+      self.action_player = self.players.active.order(:position).reload.first
       case self.round
       when 'preflop'
         self.round = 'flop'
@@ -157,12 +183,18 @@ class Hand < ActiveRecord::Base
     end
   end
 
-  def player_next_to(origin_player)
-    players = self.players.active.to_a
+  def player_physically_next_to(origin_player)
+    self.player_next_to(origin_player, false)
+  end
+
+  def player_next_to(origin_player, order_by_position=true)
+    players = self.players.active
+    player = order_by_position ? players.order(:postion) : players
+    player = players.to_a
+
     index = players.index { |player| player.id == origin_player.id }
     next_index = index + 1
     next_index %= players.count
     players[next_index]
   end
-
 end

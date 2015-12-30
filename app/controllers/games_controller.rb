@@ -4,7 +4,7 @@ class GamesController < ApplicationController
   end
 
   def create
-    @game = Game.create!
+    @game = Game.create!(sb: 50, bb: 100)
     @games = Game.all
     render :index
   end
