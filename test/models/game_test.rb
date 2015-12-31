@@ -10,5 +10,4 @@ class GameTest < ActiveSupport::TestCase
     game = Game.new(sb: 10, bb: 20, players: [players(:ivey)])
     assert_raises(Exception) { game.start_hand! }
   end
-
 end

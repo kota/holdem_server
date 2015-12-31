@@ -40,13 +40,18 @@ class HandTest < ActiveSupport::TestCase
     @hand.flop = PokerHand.new("Ah Ks Qc").cards.map(&:to_db).join(' ')
     @hand.turn = Card.new("2h").to_db
     @hand.river = Card.new("3s").to_db
+    @hand.save!
+  end
+
+  def setup_showdown_hand
+    self.setup_hand
     @hand.round = 'showdown'
     @hand.save!
   end
 
   test "stronger hand wins" do
     @game.players = [@ivey, @hellmuth]
-    self.setup_hand
+    self.setup_showdown_hand
   
     pot = @hand.pot
   
@@ -65,7 +70,7 @@ class HandTest < ActiveSupport::TestCase
   
   test "equal hands chops" do
     @game.players = [@ivey, @hellmuth]
-    self.setup_hand
+    self.setup_showdown_hand
   
     pot = @hand.pot
   
@@ -81,4 +86,17 @@ class HandTest < ActiveSupport::TestCase
     end
   end
 
+  test "fold out other players to win" do
+    @game.players = [@ivey, @hellmuth, @daniel]
+    @game.current_button_player = @ivey
+    @game.save!
+
+    self.setup_hand
+
+    @hand.add_action(HandAction.new(action_type: 'fold', player: @hellmuth, bet_amount: nil))
+    @hand.add_action(HandAction.new(action_type: 'fold', player: @daniel, bet_amount: nil))
+
+    assert_equal(1, @hand.winners.count)
+    assert_equal(@ivey, @hand.winners.first)
+  end
 end

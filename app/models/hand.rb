@@ -63,6 +63,7 @@ class Hand < ActiveRecord::Base
 
     utg = utg_player
     utg.position = position
+    utg.save!
   
     player = utg
     while (player = next_player(ordered_players, player)) != utg
@@ -98,13 +99,16 @@ class Hand < ActiveRecord::Base
   end
 
   def add_action(action)
-    raise "It's not your turn" if action.player.id != self.action_player.id
+    raise "It's not your turn #{action.player.user.name}, its #{action_player.user.name}'s" if action.player.id != self.action_player.id
 
     self.pot ||= 0
     action.round = self.round
 
-    max_bet = round_actions.map(&:bet_amount).max || 0
+    max_bet = round_actions.map{ |action| action.bet_amount || 0 }.max || 0
     to_pot = 0
+
+
+    next_action_player = player_next_to(self.action_player)
 
     case action.action_type
     when 'check/call'
@@ -164,7 +168,7 @@ class Hand < ActiveRecord::Base
       return
     end
 
-    self.action_player = player_next_to(self.action_player)
+    self.action_player = next_action_player
     save!
   end
 
@@ -182,7 +186,7 @@ class Hand < ActiveRecord::Base
 
   def winners
     if self.players.active.count == 1
-      return self.players.active[0]
+      return [self.players.active[0]]
     elsif self.round == 'showdown' && players = winners_at_showdown
       return players
     end
@@ -190,7 +194,7 @@ class Hand < ActiveRecord::Base
   end
 
   def winners_at_showdown 
-    players_hands =  self.players.active.map do |player|
+    players_hands = self.players.active.map do |player|
       [player, PokerHand.new("#{player.hole_cards} #{self.community_cards}")]
     end.sort_by { |player_hand| player_hand[1] }
     players_hands.select { |player_hand| player_hand[1] == players_hands.last[1] }.map(&:first)
@@ -227,14 +231,12 @@ class Hand < ActiveRecord::Base
     end
   end
 
-  def player_next_to(origin_player, order_by_position=true)
-    players = self.players.active
-    players = order_by_position ? players.order(:position) : players
-    players = players.to_a
+  def player_next_to(origin_player)
+    active_players = self.players.active.order(:position).to_a
 
-    index = players.index { |player| player.id == origin_player.id }
+    index = active_players.index { |player| player.id == origin_player.id }
     next_index = index + 1
-    next_index %= players.count
-    players[next_index]
+    next_index %= active_players.count
+    active_players[next_index]
   end
 end
