@@ -36,11 +36,16 @@ class Player < ActiveRecord::Base
     "#{Card.to_image_html(cards[0])}#{Card.to_image_html(cards[1])}" 
   end
 
+  def won?
+    winners = self.hand.winners
+    winners != nil && winners.find{ |player| player.id == self.id} != nil
+  end
+
   def to_s(show_hole_cards=false)
     button_notation = self.hand.game.current_button_player.id == self.id ? " (D) " : ""
     str = "#{self.user.name}#{button_notation}(#{self.chip})"
     str += " #{self.hole_card_image_html}" if show_hole_cards || self.hand.finished?
-    str += " Win #{self.hand.pot}" if self.hand.winner != nil && self.hand.winner.id == self.id
+    str += " Win #{self.hand.pot}" if self.won?
     str += " #{current_bet}" unless self.hand.finished?
     str += " *" if turn? && !self.hand.finished?
     str

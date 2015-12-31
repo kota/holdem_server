@@ -141,7 +141,7 @@ class Hand < ActiveRecord::Base
     
     self.hand_actions << action
 
-    if winner != nil
+    if winners != nil
       finish!
       return
     end
@@ -168,27 +168,32 @@ class Hand < ActiveRecord::Base
     save!
   end
 
-  #TODO Chopped pot
   def finish!
-    raise 'Not finished yet' unless win_player = winner
-    win_player.chip += self.pot
-    win_player.save!
+    raise 'Not finished yet' unless win_players = winners
+    chip_won = self.pot / winners.count
+    win_players.each do |winner|
+      winner.chip += chip_won
+      winner.save!
+    end
   end
 
-  def winner
+  def winner?(player)
+  end
+
+  def winners
     if self.players.active.count == 1
       return self.players.active[0]
-    elsif self.round == 'showdown' && player = winner_at_showdown
-      return player
+    elsif self.round == 'showdown' && players = winners_at_showdown
+      return players
     end
     nil
   end
 
-  def winner_at_showdown 
+  def winners_at_showdown 
     players_hands =  self.players.active.map do |player|
       [player, PokerHand.new("#{player.hole_cards} #{self.community_cards}")]
     end.sort_by { |player_hand| player_hand[1] }
-    winners = players_hands.select { |player_hand| player_hand[1] == players_hands[0][1] }
+    players_hands.select { |player_hand| player_hand[1] == players_hands.last[1] }.map(&:first)
   end
 
   def round_finished?
@@ -202,7 +207,7 @@ class Hand < ActiveRecord::Base
   end
 
   def finished?
-    winner != nil
+    winners != nil
   end
 
   def round_actions
@@ -220,10 +225,6 @@ class Hand < ActiveRecord::Base
     when 'river', 'showdown'
       "#{flop} #{turn} #{river}"
     end
-  end
-
-  def player_physically_next_to(origin_player)
-    self.player_next_to(origin_player, false)
   end
 
   def player_next_to(origin_player, order_by_position=true)

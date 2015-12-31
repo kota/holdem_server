@@ -35,4 +35,50 @@ class HandTest < ActiveSupport::TestCase
     assert_equal(@game.bb, @hellmuth.current_bet)
   end
 
+  def setup_hand
+    @hand = @game.start_hand!
+    @hand.flop = PokerHand.new("Ah Ks Qc").cards.map(&:to_db).join(' ')
+    @hand.turn = Card.new("2h").to_db
+    @hand.river = Card.new("3s").to_db
+    @hand.round = 'showdown'
+    @hand.save!
+  end
+
+  test "stronger hand wins" do
+    @game.players = [@ivey, @hellmuth]
+    self.setup_hand
+  
+    pot = @hand.pot
+  
+    @ivey.hole_cards = PokerHand.new("As 6c").cards.map(&:to_db).join(' ')
+    @ivey.save!
+    @hellmuth.hole_cards = PokerHand.new("Ks 6c").cards.map(&:to_db).join(' ')
+    @hellmuth.save!
+  
+    assert_equal(1, @hand.winners.count)
+    assert_equal(@ivey, @hand.winners.first)
+  
+    assert_difference -> { Player.find(@ivey.id).chip }, pot do
+      @hand.finish!
+    end
+  end
+  
+  test "equal hands chops" do
+    @game.players = [@ivey, @hellmuth]
+    self.setup_hand
+  
+    pot = @hand.pot
+  
+    @ivey.hole_cards = PokerHand.new("As 6c").cards.map(&:to_db).join(' ')
+    @ivey.save!
+    @hellmuth.hole_cards = PokerHand.new("Ac 6d").cards.map(&:to_db).join(' ')
+    @hellmuth.save!
+  
+    assert_equal(2, @hand.winners.count)
+  
+    assert_difference -> { Player.find(@ivey.id).chip }, pot/2 do
+      @hand.finish!
+    end
+  end
+
 end
