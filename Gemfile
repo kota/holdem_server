@@ -20,6 +20,7 @@ gem 'holdem'
 
 group :development, :test do
   gem 'byebug'
+  gem 'minitest-reporters'
 end
 
 group :development do

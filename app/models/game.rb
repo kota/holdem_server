@@ -1,5 +1,5 @@
 class Game < ActiveRecord::Base
-  has_many :players
+  has_many :players, -> {order "position" }, before_add: :assign_position
   belongs_to :current_button_player, class_name: "Player"
   has_many :hands
 
@@ -23,5 +23,12 @@ class Game < ActiveRecord::Base
     next_index = index + 1
     next_index %= players.count
     players[next_index]
+  end
+
+  private
+
+  def assign_position(player)
+    last_position = self.players.map(&:position).max
+    player.position = last_position ? last_position + 1 : 0
   end
 end

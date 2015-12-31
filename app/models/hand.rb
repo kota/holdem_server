@@ -36,20 +36,40 @@ class Hand < ActiveRecord::Base
   end
 
   def sb_player
-    return @sb_player if @sb_player
-
     button_player = self.game.current_button_player
-    @sb_player = self.players.size == 2 ? button_player : player_physically_next_to(button_player) 
+    self.players.size == 2 ? button_player : player_next_to(button_player) 
   end
 
   def bb_player
-    return @bb_player if @bb_player
-    @bb_player = self.player_physically_next_to(sb_player)
+    self.player_next_to(sb_player)
   end
 
   def utg_player
-    return @utg_player if @utg_player
-    @utg_player = self.player_physically_next_to(bb_player)
+    self.player_next_to(bb_player)
+  end
+
+  def assign_positions
+    def next_player(players, origin_player)
+      index = players.index(origin_player)
+      index += 1
+      index %= players.count
+      players[index]
+    end
+
+    ordered_players = self.players.order(:position).to_a
+    button = self.game.current_button_player
+
+    position = 0
+
+    utg = utg_player
+    utg.position = position
+  
+    player = utg
+    while (player = next_player(ordered_players, player)) != utg
+      position += 1
+      player.position = position 
+      player.save!
+    end
   end
 
   def start
@@ -58,16 +78,12 @@ class Hand < ActiveRecord::Base
 
     self.players.each(&:prepare_for_new_hand!)
 
+    self.assign_positions
+
     self.players.reload.each do |player|
       player.hole_cards = deck.deal(2).map(&:to_db).join(' ')
-      player.position = self.position_for(player)
       player.save!
     end
-
-    puts "bu=#{self.game.current_button_player.id}"
-    puts "sb=#{sb_player.id}"
-    puts "bb=#{bb_player.id}"
-    puts "sb=#{utg_player.id}"
 
     self.pot ||= 0
     self.hand_actions.build(player: sb_player).sb!
@@ -169,14 +185,16 @@ class Hand < ActiveRecord::Base
   end
 
   def winner_at_showdown 
-    self.players.active.map do |player|
+    players_hands =  self.players.active.map do |player|
       [player, PokerHand.new("#{player.hole_cards} #{self.community_cards}")]
-    end.sort_by { |player_hand| player_hand[1] }.last[0]
+    end.sort_by { |player_hand| player_hand[1] }
+    winners = players_hands.select { |player_hand| player_hand[1] == players_hands[0][1] }
   end
 
   def round_finished?
-    # drop(2) to remove sb,bb actions
-    all_players_done = round_actions.drop(2).map { |action| action.player.id }.uniq.size == self.players.active.reload.size
+    # drop(2) to remove sb,bb actions if preflop
+    actions_so_far = self.round == 'preflop' ? round_actions.drop(2) : round_actions
+    all_players_done = actions_so_far.map { |action| action.player.id }.uniq.size == self.players.active.reload.size
     all_betting_same_amount = self.players.active.map do |player|
       round_actions.where(player_id: player.id).maximum(:bet_amount)
     end.uniq.size == 1
@@ -210,8 +228,8 @@ class Hand < ActiveRecord::Base
 
   def player_next_to(origin_player, order_by_position=true)
     players = self.players.active
-    player = order_by_position ? players.order(:postion) : players
-    player = players.to_a
+    players = order_by_position ? players.order(:position) : players
+    players = players.to_a
 
     index = players.index { |player| player.id == origin_player.id }
     next_index = index + 1

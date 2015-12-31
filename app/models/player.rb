@@ -6,7 +6,6 @@ class Player < ActiveRecord::Base
 
   scope :active, -> { where.not(state: ['folded','busted']) }
   scope :not_busted, -> { where.not(state: 'busted') }
-  default_scope -> { order(:id) }
 
   def prepare_for_new_hand!
     self.hole_cards = nil
