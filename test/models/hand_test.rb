@@ -10,6 +10,20 @@ class HandTest < ActiveSupport::TestCase
     @game = Game.new(sb: 10, bb: 20)
   end
 
+  def setup_hand
+    @hand = @game.start_hand!
+    @hand.flop = PokerHand.new("Ah Ks Qc").cards.map(&:to_db).join(' ')
+    @hand.turn = Card.new("2h").to_db
+    @hand.river = Card.new("3s").to_db
+    @hand.save!
+  end
+
+  def setup_showdown_hand
+    self.setup_hand
+    @hand.round = 'showdown'
+    @hand.save!
+  end
+
   test "sb and bb bet blinds" do
     @game.players = [@ivey, @hellmuth, @daniel]
     @game.current_button_player = @daniel
@@ -33,20 +47,6 @@ class HandTest < ActiveSupport::TestCase
     assert_equal(@game.sb + @game.bb, hand.pot)
     assert_equal(@game.sb, @ivey.current_bet)
     assert_equal(@game.bb, @hellmuth.current_bet)
-  end
-
-  def setup_hand
-    @hand = @game.start_hand!
-    @hand.flop = PokerHand.new("Ah Ks Qc").cards.map(&:to_db).join(' ')
-    @hand.turn = Card.new("2h").to_db
-    @hand.river = Card.new("3s").to_db
-    @hand.save!
-  end
-
-  def setup_showdown_hand
-    self.setup_hand
-    @hand.round = 'showdown'
-    @hand.save!
   end
 
   test "stronger hand wins" do
