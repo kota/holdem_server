@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20151226133134) do
+ActiveRecord::Schema.define(version: 20160115101032) do
 
   create_table "games", force: :cascade, options: "ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci" do |t|
     t.string   "state",                    limit: 255
@@ -50,12 +50,20 @@ ActiveRecord::Schema.define(version: 20151226133134) do
     t.integer  "user_id",    limit: 4
     t.integer  "game_id",    limit: 4
     t.integer  "hand_id",    limit: 4
+    t.integer  "pot_id",     limit: 4
     t.float    "chip",       limit: 24,  default: 0.0
     t.string   "hole_cards", limit: 255
     t.string   "state",      limit: 255, default: "ingame"
     t.integer  "position",   limit: 4
     t.datetime "created_at",                                null: false
     t.datetime "updated_at",                                null: false
+  end
+
+  create_table "pots", force: :cascade, options: "ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci" do |t|
+    t.float    "amount",     limit: 24
+    t.integer  "hand_id",    limit: 4
+    t.datetime "created_at",            null: false
+    t.datetime "updated_at",            null: false
   end
 
   create_table "users", force: :cascade, options: "ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci" do |t|

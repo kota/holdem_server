@@ -37,7 +37,7 @@ class Player < ActiveRecord::Base
   end
 
   def won?
-    winners = self.hand.winners
+    winners = self.hand.active_pot.winners
     winners != nil && winners.find{ |player| player.id == self.id} != nil
   end
 
@@ -45,7 +45,7 @@ class Player < ActiveRecord::Base
     button_notation = self.hand.game.current_button_player.id == self.id ? " (D) " : ""
     str = "#{self.user.name}#{button_notation}(#{self.chip})"
     str += " #{self.hole_card_image_html}" if show_hole_cards || self.hand.finished?
-    str += " Win #{self.hand.pot}" if self.won?
+    str += " Win #{self.hand.active_pot.amount}" if self.won?
     str += " #{current_bet}" unless self.hand.finished?
     str += " *" if turn? && !self.hand.finished?
     str
@@ -54,5 +54,4 @@ class Player < ActiveRecord::Base
   def to_s_for_owner_user
     to_s(true)
   end
-
 end

@@ -25,6 +25,7 @@ class Hand < ActiveRecord::Base
   has_many :players
   belongs_to :action_player, class_name: "Player"
   has_many :hand_actions
+  has_many :pots
 
   after_create :start
 
@@ -37,7 +38,7 @@ class Hand < ActiveRecord::Base
 
   def sb_player
     button_player = self.game.current_button_player
-    self.players.size == 2 ? button_player : player_next_to(button_player) 
+    self.players.size == 2 ? button_player : player_next_to(button_player)
   end
 
   def bb_player
@@ -64,11 +65,11 @@ class Hand < ActiveRecord::Base
     utg = utg_player
     utg.position = position
     utg.save!
-  
+
     player = utg
     while (player = next_player(ordered_players, player)) != utg
       position += 1
-      player.position = position 
+      player.position = position
       player.save!
     end
   end
@@ -77,6 +78,7 @@ class Hand < ActiveRecord::Base
     deck = Deck.new
     deck.shuffle!
 
+    self.pots.create(amount: 0, players: self.players)
     self.players.each(&:prepare_for_new_hand!)
 
     self.assign_positions
@@ -86,7 +88,6 @@ class Hand < ActiveRecord::Base
       player.save!
     end
 
-    self.pot ||= 0
     self.hand_actions.build(player: sb_player).sb!
     self.hand_actions.build(player: bb_player).bb!
 
@@ -101,12 +102,10 @@ class Hand < ActiveRecord::Base
   def add_action(action)
     raise "It's not your turn #{action.player.user.name}, its #{action_player.user.name}'s" if action.player.id != self.action_player.id
 
-    self.pot ||= 0
     action.round = self.round
 
     max_bet = round_actions.map{ |action| action.bet_amount || 0 }.max || 0
     to_pot = 0
-
 
     next_action_player = player_next_to(self.action_player)
 
@@ -115,10 +114,9 @@ class Hand < ActiveRecord::Base
       if max_bet == 0
         action.bet_amount = 0
       elsif last_action = round_actions.where(player_id: action.player.id).try(:last)
-        
         last_bet = last_action.bet_amount
         action.bet_amount = max_bet
-        to_pot = max_bet - last_bet 
+        to_pot = max_bet - last_bet
       else
         action.bet_amount = max_bet
         to_pot = action.bet_amount
@@ -137,15 +135,16 @@ class Hand < ActiveRecord::Base
     end
 
     if to_pot > 0
-      self.pot += to_pot
-      action.player.chip -= to_pot
+      self.active_pot.update!(amount: self.active_pot.amount + to_pot)
+      chip = action.player.chip - to_pot
+      action.player.chip = chip
     end
 
     action.player.save!
-    
+
     self.hand_actions << action
 
-    if winners != nil
+    if self.active_pot.winners != nil
       finish!
       return
     end
@@ -173,45 +172,37 @@ class Hand < ActiveRecord::Base
   end
 
   def finish!
-    raise 'Not finished yet' unless win_players = winners
-    chip_won = self.pot / winners.count
-    win_players.each do |winner|
-      winner.chip += chip_won
-      winner.save!
+    raise 'Not finished yet' unless self.active_pot.winners
+    #TODO if any All-in players
+    #create new pot
+    #put all-in player's chip(the smallest one if multiple AI occured)
+    #into the old pot
+    #put the rest of the chips into new pot
+    #drop the AI player from the new pot
+    #repeat until we have no all-in player in the pot
+
+    self.pots.each do |pot|
+      winners = pot.winners
+      chip_won = pot.amount / winners.count
+      winners.each do |winner|
+        winner.chip += chip_won
+        winner.save!
+      end
     end
-  end
-
-  def winner?(player)
-  end
-
-  def winners
-    if self.players.active.count == 1
-      return [self.players.active[0]]
-    elsif self.round == 'showdown' && players = winners_at_showdown
-      return players
-    end
-    nil
-  end
-
-  def winners_at_showdown 
-    players_hands = self.players.active.map do |player|
-      [player, PokerHand.new("#{player.hole_cards} #{self.community_cards}")]
-    end.sort_by { |player_hand| player_hand[1] }
-    players_hands.select { |player_hand| player_hand[1] == players_hands.last[1] }.map(&:first)
   end
 
   def round_finished?
     # drop(2) to remove sb,bb actions if preflop
     actions_so_far = self.round == 'preflop' ? round_actions.drop(2) : round_actions
-    all_players_done = actions_so_far.map { |action| action.player.id }.uniq.size == self.players.active.reload.size
-    all_betting_same_amount = self.players.active.map do |player|
+    all_players_done = actions_so_far.map { |action| action.player.id }.uniq.size == self.active_pot.players.active.reload.size
+    all_betting_same_amount = self.active_pot.players.active.where('chip > 0').map do |player|
       round_actions.where(player_id: player.id).maximum(:bet_amount)
     end.uniq.size == 1
     all_players_done && all_betting_same_amount
   end
 
   def finished?
-    winners != nil
+    self.active_pot.winners != nil
   end
 
   def round_actions
@@ -232,11 +223,19 @@ class Hand < ActiveRecord::Base
   end
 
   def player_next_to(origin_player)
-    active_players = self.players.active.order(:position).to_a
+    active_players = self.active_pot.players.active.order(:position).to_a
 
     index = active_players.index { |player| player.id == origin_player.id }
     next_index = index + 1
     next_index %= active_players.count
     active_players[next_index]
+  end
+
+  def active_pot
+    self.pots.last
+  end
+
+  def add_to_pot!(amount)
+    self.active_pot.update!(amount: self.active_pot.amount + amount)
   end
 end

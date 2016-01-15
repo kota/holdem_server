@@ -3,7 +3,7 @@
 <% game ||= @game %>
 
 <p>
-  Pot: <%= hand.pot %><br>
+  Pot: <%= hand.active_pot.amount %><br>
   Round: <%= hand.round %>
 </p>
 <% if hand.community_cards.present? %>

@@ -4,6 +4,7 @@ class CreatePlayers < ActiveRecord::Migration
       t.references :user
       t.references :game
       t.references :hand
+      t.references :pot
       t.float :chip, default: 0
       t.string :hole_cards
       t.string :state, default: 'ingame'
